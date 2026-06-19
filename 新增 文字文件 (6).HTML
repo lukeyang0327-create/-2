@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch9 靜力學 Ch9  AI 輔助與幾何教學求解系統</title>
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #334155; }
+        .container { max-width: 1300px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        h1 { color: #1e293b; border-bottom: 4px solid #059669; padding-bottom: 12px; margin-top: 0; font-size: 26px; }
+        .subtitle { color: #64748b; font-size: 14px; margin-top: -8px; margin-bottom: 25px; }
+        
+        /* 核心一：AI 面板樣式 */
+        .ai-panel { background: linear-gradient(145deg, #f8fafc, #f1f5f9); border: 2px solid #10b981; border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #065f46; font-size: 18px; font-weight: bold; }
+        .ai-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; }
+        @media (max-width: 900px) { .ai-grid { grid-template-columns: 1fr; } }
+        
+        /* 輸出框文字清晰度調優 */
+        .ai-output-box { background: #1e293b; color: #f8fafc; padding: 20px; border-radius: 6px; min-height: 350px; max-height: 580px; overflow-y: auto; font-size: 15px; line-height: 1.6; border: 1px solid #334155; }
+        
+        /* 圖片上傳區域 */
+        .upload-zone { border: 2px dashed #cbd5e1; padding: 20px; border-radius: 8px; background: #ffffff; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 12px; }
+        .upload-zone:hover { border-color: #10b981; background: #f0fdf4; }
+        .preview-container { margin-top: 10px; display: none; text-align: center; }
+        .preview-img { max-width: 100%; max-height: 180px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 1px solid #cbd5e1; }
+        
+        /* 修正指示輸入區 */
+        .correction-zone { background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 6px; margin-top: 12px; margin-bottom: 12px; }
+        .correction-zone label { color: #b45309; font-weight: bold; font-size: 13px; }
+        .correction-zone textarea { width: 100%; padding: 10px; border: 1px solid #fcd34d; border-radius: 6px; box-sizing: border-box; font-size: 13px; resize: vertical; margin-top: 8px; }
+
+        /* 幾何核心布局 */
+        .main-layout { display: grid; grid-template-columns: 1fr 1.1fr; gap: 30px; }
+        @media (max-width: 950px) { .main-layout { grid-template-columns: 1fr; } }
+        .panel { background: #fdfefe; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.01); }
+        h3 { margin-top: 0; color: #0f172a; border-left: 4px solid #3b82f6; padding-left: 8px; font-size: 17px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #334155; font-size: 13px; }
+        
+        /* 下方計算器回歸到純數字輸入 */
+        input[type="number"], input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; background-color: #fafafa; }
+        input[type="number"]:focus { border-color: #3b82f6; outline: none; }
+        select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; background-color: white; }
+        
+        .checkbox-group { display: flex; align-items: center; gap: 10px; background: #fff5f5; padding: 10px; border-radius: 6px; border: 1px dashed #f87171; margin-top: 15px; }
+        .checkbox-group input { width: auto; cursor: pointer; }
+        .checkbox-group label { margin-bottom: 0; color: #dc2626; font-weight: bold; }
+        
+        /* 按鈕樣式 */
+        button { background-color: #3b82f6; color: white; padding: 11px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        button:hover { background-color: #2563eb; }
+        button.btn-ai { background-color: #10b981; }
+        button.btn-ai:hover { background-color: #059669; }
+        button.btn-danger { background-color: #ef4444; margin-top: 5px; }
+        button.btn-danger:hover { background-color: #dc2626; }
+        
+        /* 畫布區域設計 */
+        .canvas-container { text-align: center; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        canvas { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; }
+        
+        .shape-list { margin-top: 15px; max-height: 120px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; background: #f8fafc; border-radius: 6px; }
+        .shape-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background: #fff; border: 1px solid #e2e8f0; margin-bottom: 6px; border-radius: 4px; font-size: 13px; }
+        
+        /* 表格與結果報告 */
+        .result-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; background: white; }
+        table, th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
+        th { background-color: #f1f5f9; color: #1e293b; }
+        .void-row { color: #ef4444; background-color: #fff5f5; }
+        .summary-box { background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 6px solid #22c55e; font-size: 15px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🤖 靜力學全章節 AI 教學輔助系統大整合展示介面</h1>
+    <div class="subtitle">AI解題系統</div>
+
+    <div class="ai-panel">
+        <div class="ai-header">🧠 核心一：Gemini AI 萬用題目「照片解讀與互動教學修正」引擎</div>
+        <div class="ai-grid">
+            <div>
+                <div class="form-group">
+                    <label for="apiKey">請貼上您的 Gemini API Key：</label>
+                    <input type="password" id="apiKey" placeholder="請至 Google AI Studio 申請並貼於此處...">
+                </div>
+                
+                <div class="form-group">
+                    <label>請上傳或拍攝課本題目相片 (支援全章節難題)：</label>
+                    <div class="upload-zone" onclick="document.getElementById('imageInput').click()">
+                        <span id="uploadPrompt" style="color: #64748b; font-size: 14px;">📁 點擊此處上傳未知習題相片或圖片檔案</span>
+                        <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="previewSelectedImage(event)">
+                        <div id="previewWrapper" class="preview-container">
+                            <img id="imagePreview" class="preview-img" alt="題目預覽">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="correction-zone">
+                    <label for="aiCorrectionInput">💡 答案不對或不夠清晰？輸入提示引導 AI 修正（選填）：</label>
+                    <textarea id="aiCorrectionInput" rows="2" placeholder="例如：『標準答案是XX，請重新檢查並展示定積分上下限逐步積分過程。』"></textarea>
+                </div>
+                
+                <button class="btn-ai" onclick="askAiWithImage()">🚀 送出照片：啟動 AI 推理逐步求解（含數學公式排版）</button>
+            </div>
+            <div>
+                <label>📋 電子黑板級 ── 現場逐步解題與演算推導報告：</label>
+                <div class="ai-output-box tex2jax_process" id="aiOutput">【等待相片上傳與送出觸發】請在上方的 AI 功能區上傳圖片，此處將自動化 OCR 辨識文字、進行物理推理，並以教科書級 LaTeX 渲染，為您呈現完整的黑板列式解題步驟。</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel">
+            <h3>📐 核心二：平面標準複合幾何元件參數配置</h3>
+            <div class="form-group" style="margin-top:12px;">
+                <label for="shapeType">選擇基本幾何形狀：</label>
+                <select id="shapeType" onchange="onShapeTypeChange()">
+                    <option value="rectangle">矩形 (Rectangle)</option>
+                    <option value="triangle">直角三角形 (Right Triangle)</option>
+                    <option value="circle">圓形 (Circle)</option>
+                    <option value="semicircle">半圓形 (Semicircle)</option>
+                </select>
+            </div>
+            <div id="dynamic-inputs">
+                <div class="form-group" id="container-w">
+                    <label id="label-w" for="valW">底邊寬度 b (mm)：</label>
+                    <input type="number" id="valW" value="100" step="0.1" min="0.1">
+                </div>
+                <div class="form-group" id="container-h">
+                    <label id="label-h" for="valH">高度 h (mm)：</label>
+                    <input type="number" id="valH" value="100" step="0.1" min="0.1">
+                </div>
+            </div>
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="locX">基準 X 座標 (mm)：</label>
+                    <input type="number" id="locX" value="0" step="0.1">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="locY">基準 Y 座標 (mm)：</label>
+                    <input type="number" id="locY" value="0" step="0.1">
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="isVoidShape">
+                <label for="isVoidShape">將此區域設定為「挖空孔洞」(Area < 0)</label>
+            </div>
+            <button style="margin-top:12px;" onclick="addNewShape()">➕ 將純數字幾何加入矩陣</button>
+            <h3 style="margin-top: 20px;">📋 目前截面元件清單</h3>
+            <div class="shape-list" id="uiShapeList">
+                <div style="color:#94a3b8; text-align:center; padding-top:35px;">幾何空間內尚無子元件數值數據</div>
+            </div>
+            <button class="btn-danger" onclick="clearAllShapes()">🗑️ 清空所有數據重新配置</button>
+        </div>
+
+        <div class="panel canvas-container">
+            <h3>📊 核心三：工程圖形視覺化標註畫布</h3>
+            <p style="font-size: 12px; color: #64748b; margin-top: 4px; margin-bottom: 10px;">
+                藍色為實體；紅色虛線為孔洞；<span style="color:#ef4444;font-weight:bold;">紅色十字 (❌)</span> 為自動算出的複合幾何形心。
+            </p>
+            <canvas id="geometryCanvas" width="500" height="390"></canvas>
+            
+            <div class="form-group" style="margin-top: 15px; text-align: left; background: #f0fdfa; padding: 12px; border-radius: 6px; border: 1px solid #5eead4;">
+                <label for="pappusAxis" style="color:#0f766e;">⚡ 進階功能：設定 Pappus 定理旋轉對稱軸</label>
+                <select id="pappusAxis" onchange="runCentroidAlgorithm()" style="background: white;">
+                    <option value="y">繞著 Y 軸 (x = 0) 旋轉 360 度</option>
+                    <option value="x">繞著 X 軸 (y = 0) 旋轉 360 度</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="result-section">
+        <h3>✏️ 核心四：複合截面第一面積矩加權與 Pappus 定理數值計算表 (對照純數值習題)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>元件 (i)</th>
+                    <th>幾何類型</th>
+                    <th>面積 A_i (mm²)</th>
+                    <th>形心 x_i (mm)</th>
+                    <th>形心 y_i (mm)</th>
+                    <th>靜力矩 A_i · x_i (mm³)</th>
+                    <th>靜力矩 A_i · y_i (mm³)</th>
+                </tr>
+            </thead>
+            <tbody id="reportTableBody">
+                <tr>
+                    <td colspan="7" style="color:#94a3b8; padding: 25px;">等待純數值資料輸入，以啟端幾何加權矩陣公式連動。</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="summary-box" id="summaryOutputReport">
+            <strong>📊 數值計算引擎狀態：</strong> 等待操作者於上方核心二輸入工程幾何數據。
+        </div>
+    </div>
+</div>
+
+<script>
+    let shapeArray = [];
+    let base64ImageData = "";
+    let imageMimeType = "";
+    let lastAiResponse = ""; // 對話上下文
+
+    const canvas = document.getElementById('geometryCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ================= 核心一：AI 多模態圖像識別與解題部分 =================
+    function previewSelectedImage(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        imageMimeType = file.type;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewWrapper = document.getElementById('previewWrapper');
+            const preview = document.getElementById('imagePreview');
+            const prompt = document.getElementById('uploadPrompt');
+            
+            preview.src = e.target.result;
+            previewWrapper.style.display = 'block';
+            prompt.style.display = 'none';
+            
+            base64ImageData = e.target.result.split(',')[1];
+            lastAiResponse = ""; // 重設歷史
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function askAiWithImage() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const outputBox = document.getElementById('aiOutput');
+        const correctionInput = document.getElementById('aiCorrectionInput').value.trim();
+
+        if (!apiKey) { alert("請先填入您的 Gemini API Key！"); return; }
+        if (!base64ImageData) { alert("請先上傳課本習題照片！"); return; }
+
+        outputBox.innerHTML = "⚡ 正在上傳圖片並連線後端 AI 視覺推理系統...<br>正在辨識照片中的題目邏輯並進行深度推理求解，請稍候...";
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            
+            let systemPrompt = "你現在是工程靜力學教學助教教授。請仔細辨識圖片中的習題。使用者目前不知道這題答案，請你在黑板上從零開始一步一步解開這題。\n\n" +
+                               "【重要算式格式要求】：輸出的所有數學符號、方程式、積分、分數、向量、上下標，都必須嚴格使用 LaTeX 語法包裹。例如獨立一行的大公式使用 $$ 包裹，行內小符號使用 $ 包裹。\n\n" +
+                               "請嚴格包含以下教學大綱回覆：\n" +
+                               "1. 【題目幾何圖形與已知物理條件分析】\n" +
+                               "2. 【核心採用的靜力學公式與定理列式（例如 Truss 桁架方程、流體GAMMA、微積分圓盤積分公式）】\n" +
+                               "3. 【詳細的逐步演算推導過程，絕對不能跳步】\n" +
+                               "4. 【最終計算數值結果與正確單位】。請一律使用繁體中文回覆。";
+
+            let parts = [
+                { text: systemPrompt },
+                { inlineData: { mimeType: imageMimeType || "image/png", data: base64ImageData } }
+            ];
+
+            if (correctionInput && lastAiResponse) {
+                parts.push({ text: `你上一次推導過程如下：\n${lastAiResponse}` });
+                parts.push({ text: `【使用者的修正補充】：${correctionInput}。請根據此補充說明，重新檢查推理漏洞並在回答中修正錯誤，推導出正確結果。` });
+            } else if (correctionInput && !lastAiResponse) {
+                parts.push({ text: `【使用者特別提醒】：${correctionInput}` });
+            }
+
+            const payload = { contents: [{ parts: parts }] };
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            // 讀取原始文字進行錯誤診斷
+            const responseText = await response.text();
+            let data;
+            try { data = JSON.parse(responseText); } catch(e) {
+                outputBox.innerHTML = `⚠️ 伺服器回傳了非 JSON 格式的錯誤。可以等 1 分鐘後重試。<br><pre style="color:#ef4444;">${responseText}</pre>`;
+                return;
+            }
+            
+            // 抓到真實錯誤碼並印出來
+            if (data.error) {
+                outputBox.innerHTML = `❌ <b>Google AI 回報連線錯誤 (${data.error.status})</b>：<br><span style="color:#f87171;">${data.error.message}</span><br><br>💡 <i>提示：如果是 RESOURCE_EXHAUSTED，代表免費額度點擊太頻繁被限速了，請等 1 分鐘再試。</i>`;
+                return;
+            }
+
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                let text = data.candidates[0].content.parts[0].text;
+                lastAiResponse = text; 
+                outputBox.innerHTML = text;
+                // 觸發 MathJax 重新渲染，將文字秒變漂亮公式
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    MathJax.typesetPromise([outputBox]).catch(function (err) { console.log(err.message); });
+                }
+                document.getElementById('aiCorrectionInput').value = ""; 
+            } else { outputBox.innerText = "⚠️ 未知錯誤：未收到有效的內容回覆。"; }
+        } catch (error) { outputBox.innerText = "❌ 連線阻斷錯誤：\n" + error.message; }
+    }
+
+    // ================= 核心二、三、四：平面純幾何數值計算機部分 =================
+    function onShapeTypeChange() {
+        const type = document.getElementById('shapeType').value;
+        const containerH = document.getElementById('container-h');
+        const labelW = document.getElementById('label-w');
+        if (type === 'circle' || type === 'semicircle') {
+            containerH.style.display = 'none';
+            labelW.innerText = '半徑 r (mm)：';
+        } else {
+            containerH.style.display = 'block';
+            labelW.innerText = '底邊寬度 b (mm)：';
+        }
+    }
+
+    function addNewShape() {
+        const type = document.getElementById('shapeType').value;
+        const w = parseFloat(document.getElementById('valW').value) || 0;
+        const h = parseFloat(document.getElementById('valH').value) || 0;
+        const x = parseFloat(document.getElementById('locX').value) || 0;
+        const y = parseFloat(document.getElementById('locY').value) || 0;
+        const isVoid = document.getElementById('isVoidShape').checked;
+
+        // 數值驗證防呆
+        if (w <= 0 && (type === 'rectangle' || type === 'triangle' || type === 'circle' || type === 'semicircle')) {
+            alert("⚠️ 錯誤：為確保 Canvas 繪圖與表格計算正確，尺寸不能小於等於 0 唷。");
+            return;
+        }
+
+        let area = 0, cx = 0, cy = 0;
+        if (type === 'rectangle') { area = w * h; cx = x + w/2; cy = y + h/2; }
+        else if (type === 'triangle') { area = 0.5 * w * h; cx = x + w/3; cy = y + h/3; }
+        else if (type === 'circle') { area = Math.PI * w * w; cx = x; cy = y; }
+        else if (type === 'semicircle') { area = 0.5 * Math.PI * w * w; cx = x; cy = y + (4 * w)/(3 * Math.PI); }
+
+        if (isVoid) area = -area;
+        shapeArray.push({ type, w, h, x, y, isVoid, area, cx, cy });
+        document.getElementById('isVoidShape').checked = false;
+        updateApplication();
+    }
+
+    function clearAllShapes() { shapeArray = []; updateApplication(); }
+    function updateApplication() { renderShapeListUI(); runCentroidAlgorithm(); }
+
+    function renderShapeListUI() {
+        const listDiv = document.getElementById('uiShapeList');
+        if (shapeArray.length === 0) { listDiv.innerHTML = '<div style="color:#94a3b8; text-align:center; padding-top:35px;">幾何空間內尚無子元件數值數據</div>'; return; }
+        listDiv.innerHTML = '';
+        shapeArray.forEach((s, i) => {
+            const name = s.type==='rectangle'?'矩形':s.type==='triangle'?'三角形':s.type==='circle'?'圓形':'半圓';
+            listDiv.innerHTML += `<div class="shape-item"><span><b>#${i+1} ${name}</b> ${s.isVoid?'[挖空]':'[實體]'} (b:${s.w}, h:${s.h})</span></div>`;
+        });
+    }
+
+    function runCentroidAlgorithm() {
+        const tbody = document.getElementById('reportTableBody');
+        const reportSummary = document.getElementById('summaryOutputReport');
+        const axis = document.getElementById('pappusAxis').value;
+
+        if (shapeArray.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:#94a3b8; padding: 25px;">等待純數值資料輸入，以啟端幾何加權矩陣公式連動。</td></tr>';
+            reportSummary.innerHTML = '<strong>📊 幾何計算引擎狀態：</strong> 等待操作者於上方核心二輸入工程幾何數據。';
+            drawGeometry(0, 0, false); return;
+        }
+
+        let totalArea = 0, totalAx = 0, totalAy = 0;
+        tbody.innerHTML = '';
+        shapeArray.forEach((s, i) => {
+            let Ax = s.area * s.cx, Ay = s.area * s.cy;
+            totalArea += s.area; totalAx += Ax; totalAy += Ay;
+            tbody.innerHTML += `<tr ${s.isVoid?'class="void-row"':''}><td>${i+1}</td><td>${s.type==='rectangle'?'矩形':s.type==='triangle'?'三角形':s.type==='circle'?'圓形':'半圓'}</td><td>${s.area.toFixed(1)}</td><td>${s.cx.toFixed(1)}</td><td>${s.cy.toFixed(1)}</td><td>${Ax.toFixed(1)}</td><td>${Ay.toFixed(1)}</td></tr>`;
+        });
+
+        let fX = totalAx / totalArea;
+        let fY = totalAy / totalArea;
+        let r_bar = (axis === 'y') ? fX : fY;
+        let p_volume = 2 * Math.PI * r_bar * totalArea;
+
+        tbody.innerHTML += `
+            <tr style="font-weight:bold; background-color:#e2e8f0;">
+                <td colspan="2">總和 (Σ)</td>
+                <td>${totalArea.toFixed(1)}</td>
+                <td colspan="2">—</td>
+                <td>${totalAx.toFixed(1)}</td>
+                <td>${totalAy.toFixed(1)}</td>
+            </tr>
+        `;
+
+        reportSummary.innerHTML = `
+            <strong>🏆 組合截面幾何加權報告結論：</strong><br>
+            • X̄ = ΣAx / ΣA = <span style="color:#2563eb; font-weight:bold;">${fX.toFixed(2)} mm</span><br>
+            • Ȳ = ΣAy / ΣA = <span style="color:#2563eb; font-weight:bold;">${fY.toFixed(2)} mm</span><br>
+            2. <b>Pappus 迴轉體積數值計算 (繞 ${axis.toUpperCase()} 軸)</b>：<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;• 公式：$V = 2 \cdot \pi \cdot \bar{r} \cdot A$<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;• 數值：$V = 2 \cdot 3.1416 \cdot ${r_bar.toFixed(2)} \cdot ${totalArea.toFixed(1)}$<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;• 最終旋轉體體積 <span style="color:#10b981; font-weight:bold;">V = ${p_volume.toFixed(2)} mm³</span>
+        `;
+        drawGeometry(fX, fY, true);
+    }
+
+    function drawGeometry(fX, fY, showC) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save(); ctx.translate(100, canvas.height - 100); ctx.scale(1.5, -1.5);
+        ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 1;
+        for (let g = 0; g <= 400; g += 50) { ctx.beginPath(); ctx.moveTo(g, -50); ctx.lineTo(g, 400); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-50, g); ctx.lineTo(400, g); ctx.stroke(); }
+        ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(400, 0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(0, 350); ctx.stroke();
+        
+        shapeArray.forEach(s => {
+            if (s.isVoid) { ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); }
+            else { ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'; ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5; ctx.setLineDash([]); }
+            ctx.beginPath();
+            if (s.type === 'rectangle') ctx.rect(s.x, s.y, s.w, s.h);
+            else if (s.type === 'triangle') { ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + s.w, s.y); ctx.lineTo(s.x, s.y + s.h); ctx.closePath(); }
+            else if (s.type === 'circle') ctx.arc(s.x, s.y, s.w, 0, 2*Math.PI);
+            else if (s.type === 'semicircle') { ctx.arc(s.x, s.y, s.w, 0, Math.PI); ctx.closePath(); }
+            ctx.fill(); ctx.stroke();
+        });
+
+        if (showC) {
+            ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3; ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(fX-5, fY); ctx.lineTo(fX+5, fY); ctx.moveTo(fX, fY-5); ctx.lineTo(fX, fY+5); ctx.stroke();
+            ctx.save(); ctx.scale(1, -1); ctx.fillStyle = '#dc2626'; ctx.font = 'bold 10px Arial'; ctx.fillText(`C(${fX.toFixed(1)},${fY.toFixed(1)})`, fX+5, -fY-5); ctx.restore();
+        }
+        ctx.restore();
+    }
+    onShapeTypeChange();
+</script>
+</body>
+</html>
